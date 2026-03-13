@@ -34,6 +34,8 @@ docker push your-registry/runpod-ollama-webui:latest
 
 > **Apple Silicon / ARM users:** The `--platform linux/amd64` flag is mandatory. RunPod only supports `linux/amd64` architecture.
 
+> **Base image:** The Dockerfile defaults to RunPod's official PyTorch base (`runpod/pytorch`), which already includes CUDA, Python, SSH, and JupyterLab. If you prefer a lighter raw NVIDIA CUDA image, see the commented-out "Option B" in the Dockerfile — you must also uncomment the `sources.list` restoration block or `apt-get` will fail (NVIDIA strips the Ubuntu repos from their minimal images).
+
 ### 2. Create RunPod Pod Template
 
 Go to **RunPod Console → Templates → New Template** and fill in:

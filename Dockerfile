@@ -1,12 +1,32 @@
 # =============================================================================
 # RunPod Pod Template: Ollama + Open WebUI
-# Base: NVIDIA CUDA for GPU inference
 # Compute Type: NVIDIA GPU
 #
 # BUILD: docker build --platform linux/amd64 -t your-registry/runpod-ollama-webui:latest .
 # PUSH:  docker push your-registry/runpod-ollama-webui:latest
+#
+# BASE IMAGE OPTIONS (uncomment ONE):
+#
+# Option A (recommended): RunPod's official PyTorch base image.
+#   Includes CUDA 12.8.1, Python 3, pip, SSH, JupyterLab, common tools.
+#   Much smaller Dockerfile, fewer things to configure.
+#
+# Option B: Raw NVIDIA CUDA image (lighter, but needs manual setup).
+#   You must restore Ubuntu repos since NVIDIA strips them.
+#   Uncomment the "Option B" block below and comment out Option A.
 # =============================================================================
-FROM --platform=linux/amd64 nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# ── Option A: RunPod base image (recommended) ──
+FROM --platform=linux/amd64 runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+
+# ── Option B: Raw NVIDIA CUDA image (uncomment if you prefer minimal) ──
+# FROM --platform=linux/amd64 nvidia/cuda:12.4.1-runtime-ubuntu22.04
+# # Restore Ubuntu repos (NVIDIA images strip them)
+# RUN echo "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" > /etc/apt/sources.list && \
+#     echo "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+#     echo "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" >> /etc/apt/sources.list
+# # If using Option B, also add to the apt-get install below:
+# #   python3 python3-pip python3-venv
 
 LABEL maintainer="runpod-ollama-webui"
 LABEL description="Ollama LLM server + Open WebUI on RunPod GPU pods"
@@ -15,6 +35,8 @@ LABEL description="Ollama LLM server + Open WebUI on RunPod GPU pods"
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ── System dependencies ──
+# The RunPod base already has most tools; this adds anything missing.
+# If using Option B (raw CUDA), this installs everything from scratch.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
@@ -22,29 +44,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     lsof \
     procps \
-    python3 \
-    python3-pip \
-    python3-venv \
     ffmpeg \
     libsm6 \
     libxext6 \
-    netcat \
+    netcat-openbsd \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Configure SSH for RunPod ──
+# ── Configure SSH for RunPod (skip if using RunPod base — already configured) ──
+# RunPod base image has SSH pre-configured via /start.sh.
+# This block is a safety net and also needed for Option B.
 RUN mkdir -p /var/run/sshd /root/.ssh && \
     chmod 700 /root/.ssh && \
-    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
-    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
-    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
-    ssh-keygen -A
+    sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    ssh-keygen -A 2>/dev/null || true
 
 # ── Install Ollama ──
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # ── Install Open WebUI via pip (latest stable) ──
-RUN pip3 install --no-cache-dir open-webui
+RUN pip install --no-cache-dir --break-system-packages open-webui || \
+    pip3 install --no-cache-dir open-webui
 
 # ── Default environment variables ──────────────────────────────────────────
 #
