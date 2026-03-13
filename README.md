@@ -34,7 +34,7 @@ docker push your-registry/runpod-ollama-webui:latest
 
 > **Apple Silicon / ARM users:** The `--platform linux/amd64` flag is mandatory. RunPod only supports `linux/amd64` architecture.
 
-> **Base image:** The Dockerfile defaults to RunPod's official PyTorch base (`runpod/pytorch`), which already includes CUDA, Python, SSH, and JupyterLab. If you prefer a lighter raw NVIDIA CUDA image, see the commented-out "Option B" in the Dockerfile — you must also uncomment the `sources.list` restoration block or `apt-get` will fail (NVIDIA strips the Ubuntu repos from their minimal images).
+> **Base image:** `runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04` — RunPod's official PyTorch base which already includes CUDA, Python 3.11, pip, SSH, JupyterLab, curl, wget, and git. The Dockerfile only installs a few extra packages on top.
 
 ### 2. Create RunPod Pod Template
 
@@ -237,6 +237,24 @@ WEBUI_ADMIN_PASSWORD={{ RUNPOD_SECRET_admin_password }}
 Secret values are encrypted and not visible after creation.
 
 ## Troubleshooting
+
+### Docker Build: "Temporary failure resolving" (Apple Container App / Docker Desktop)
+
+If `docker build` fails with DNS errors like `Temporary failure resolving 'archive.ubuntu.com'`, the build container has no internet. This is a host-side DNS issue, not a Dockerfile problem.
+
+**Apple Container App** — there's a known bug where local DNS services (dnsmasq, pihole, etc.) conflict with the container's resolver. Fixes:
+1. Stop any local DNS service running on port 53, then retry the build
+2. Switch to Docker Desktop for Mac which handles DNS differently
+3. Build on a Linux machine or CI pipeline (GitHub Actions, etc.)
+
+**Docker Desktop** — try adding DNS servers in Docker Desktop → Settings → Docker Engine:
+```json
+{
+  "dns": ["8.8.8.8", "8.8.4.4"]
+}
+```
+
+### Runtime Issues
 
 | Issue | Solution |
 |---|---|
