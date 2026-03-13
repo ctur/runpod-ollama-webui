@@ -17,22 +17,39 @@ echo "  Model:        ${OLLAMA_MODEL:-none}"
 echo ""
 echo "============================================="
 
-# ── 0. Export env vars for true SSH sessions ──
-# RunPod's "true SSH" over TCP doesn't inherit container env vars.
-# Write them to /etc/profile.d/ so they're available in SSH shells.
-if [ -f /root/export-env.sh ]; then
-    /root/export-env.sh
-    echo "[INFO] Environment variables exported for SSH sessions."
+# ── 0. Set up /workspace directories ──
+# RunPod network volume mounts at /workspace. We must create our
+# subdirectories at runtime because the mount replaces whatever
+# was baked into the image at that path.
+echo "[INFO] Setting up /workspace directories..."
+mkdir -p /workspace/ollama/models
+mkdir -p /workspace/open-webui
+
+# Symlink /root/.ollama → /workspace/ollama so Ollama's default
+# home directory points to the persistent network volume.
+if [ ! -L /root/.ollama ]; then
+    rm -rf /root/.ollama
+    ln -sf /workspace/ollama /root/.ollama
+    echo "[INFO] Symlinked /root/.ollama → /workspace/ollama"
 fi
 
-# ── 0b. Start SSH daemon if PUBLIC_KEY is available ──
+# ── 0b. Export env vars for true SSH sessions ──
+# RunPod's "true SSH" over TCP doesn't inherit container env vars.
+# Write them to /etc/profile.d/ so they're available in SSH shells.
+env | while IFS="=" read -r key value; do
+    echo "export $key=\"$value\""
+done > /etc/profile.d/runpod-envs.sh
+chmod +x /etc/profile.d/runpod-envs.sh
+echo "[INFO] Environment variables exported for SSH sessions."
+
+# ── 0c. Start SSH daemon if PUBLIC_KEY is available ──
 if [ -n "${PUBLIC_KEY}" ]; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     echo "${PUBLIC_KEY}" >> /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
     service ssh start
-    echo "[INFO] SSH daemon started (public key injected)."
+    echo "[INFO] SSH daemon started (PUBLIC_KEY injected by RunPod)."
 elif [ -n "${SSH_PUBLIC_KEY}" ]; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
@@ -111,6 +128,10 @@ echo "  RunPod Proxy URLs:"
 echo "  WebUI:  https://${RUNPOD_POD_ID}-${PORT:-8080}.proxy.runpod.net"
 echo "  Ollama: https://${RUNPOD_POD_ID}-11434.proxy.runpod.net"
 fi
+echo ""
+echo "  Persistent storage (/workspace):"
+echo "  Models:  /workspace/ollama/models"
+echo "  WebUI:   /workspace/open-webui"
 echo "============================================="
 echo ""
 

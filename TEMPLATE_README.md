@@ -25,12 +25,12 @@ On first visit, create an account — the first user becomes admin.
 | `WEBUI_AUTH` | `True` | Set `False` for no-login single-user mode. |
 | `ENABLE_SIGNUP` | `True` | Allow new user registrations. |
 
-## Storage
+## Storage (all on network volume)
 
 | Path | Purpose |
 |---|---|
-| `/root/.ollama` | **Mount your network volume here.** Model weights persist across restarts. |
-| `/app/backend/data` | Open WebUI database, chats, uploads (container disk). |
+| `/workspace/ollama/models` | Model weights — persists across restarts and pod deletions. |
+| `/workspace/open-webui` | Open WebUI database, chats, uploads — persists across restarts and pod deletions. |
 
 ## Pulling More Models
 
@@ -42,12 +42,13 @@ ollama pull codellama:13b
 
 Or use the Open WebUI Admin Panel → Settings → Models.
 
-## Recommended Setup
+## Recommended Template Settings
 
 | Field | Value |
 |---|---|
+| Compute Type | NVIDIA GPU |
 | Container Disk | 20 GB |
 | Volume Disk | 50 GB+ (depends on model sizes) |
-| Volume Mount Path | `/root/.ollama` |
-| Expose HTTP Ports | `8080, 11434` |
+| Volume Mount Path | `/workspace` |
+| Expose HTTP Ports | `8080`, `11434` |
 | Expose TCP Ports | `22` |

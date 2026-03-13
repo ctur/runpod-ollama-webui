@@ -48,9 +48,8 @@ RUN pip3 install --no-cache-dir open-webui
 
 # ── Default environment variables ──────────────────────────────────────────
 #
-# Ollama
+# Ollama — server
 ENV OLLAMA_HOST=0.0.0.0:11434
-ENV OLLAMA_MODELS=/root/.ollama/models
 ENV OLLAMA_NUM_PARALLEL=4
 ENV OLLAMA_MAX_LOADED_MODELS=1
 ENV OLLAMA_KEEP_ALIVE=5m
@@ -58,33 +57,34 @@ ENV OLLAMA_FLASH_ATTENTION=1
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Model to auto-pull on first boot (set to empty to skip)
+# Ollama — storage
+# Points into /workspace so models persist on RunPod network volume.
+# The entrypoint creates these dirs and symlinks /root/.ollama → /workspace/ollama
+ENV OLLAMA_MODELS=/workspace/ollama/models
+
+# Model to auto-pull on first boot (comma-separated, empty to skip)
 ENV OLLAMA_MODEL=llama3.2
 
-# Open WebUI
+# Open WebUI — connection
 ENV OLLAMA_BASE_URL=http://127.0.0.1:11434
-ENV WEBUI_SECRET_KEY=""
 ENV PORT=8080
-ENV DATA_DIR=/app/backend/data
+ENV ENABLE_OLLAMA_API=True
+
+# Open WebUI — storage
+# Points into /workspace so chats/users/uploads persist on network volume.
+ENV DATA_DIR=/workspace/open-webui
+
+# Open WebUI — auth & general
+ENV WEBUI_SECRET_KEY=""
 ENV ENABLE_SIGNUP=True
 ENV DEFAULT_USER_ROLE=pending
 ENV DEFAULT_MODELS=""
-ENV ENABLE_OLLAMA_API=True
+ENV WEBUI_AUTH=True
 ENV ANONYMIZED_TELEMETRY=false
 ENV DO_NOT_TRACK=true
-ENV WEBUI_AUTH=True
 
 # RunPod specific
 ENV RUNPOD=true
-
-# ── Persistent data directories ──
-RUN mkdir -p /root/.ollama /app/backend/data
-
-# ── Workaround: persist env vars for true SSH sessions ──
-# RunPod's "true SSH" doesn't inherit container env vars.
-# We export them to /etc/environment and a profile script.
-RUN echo '#!/bin/bash\nenv >> /etc/environment\nenv | while IFS="=" read -r key value; do echo "export $key=\"$value\""; done > /etc/profile.d/runpod-envs.sh' > /root/export-env.sh && \
-    chmod +x /root/export-env.sh
 
 # ── Copy entrypoint ──
 COPY entrypoint.sh /entrypoint.sh
