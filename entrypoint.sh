@@ -9,12 +9,41 @@ echo "============================================="
 echo "  RunPod Ollama + Open WebUI Template"
 echo "============================================="
 echo ""
+echo "  Pod ID:       ${RUNPOD_POD_ID:-unknown}"
 echo "  GPU:          ${NVIDIA_VISIBLE_DEVICES:-all}"
 echo "  Ollama Host:  ${OLLAMA_HOST:-0.0.0.0:11434}"
 echo "  WebUI Port:   ${PORT:-8080}"
 echo "  Model:        ${OLLAMA_MODEL:-none}"
 echo ""
 echo "============================================="
+
+# ── 0. Export env vars for true SSH sessions ──
+# RunPod's "true SSH" over TCP doesn't inherit container env vars.
+# Write them to /etc/profile.d/ so they're available in SSH shells.
+if [ -f /root/export-env.sh ]; then
+    /root/export-env.sh
+    echo "[INFO] Environment variables exported for SSH sessions."
+fi
+
+# ── 0b. Start SSH daemon if PUBLIC_KEY is available ──
+if [ -n "${PUBLIC_KEY}" ]; then
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    echo "${PUBLIC_KEY}" >> /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+    service ssh start
+    echo "[INFO] SSH daemon started (public key injected)."
+elif [ -n "${SSH_PUBLIC_KEY}" ]; then
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    echo "${SSH_PUBLIC_KEY}" >> /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+    service ssh start
+    echo "[INFO] SSH daemon started (SSH_PUBLIC_KEY injected)."
+else
+    echo "[INFO] No PUBLIC_KEY or SSH_PUBLIC_KEY found. SSH daemon not started."
+    echo "[INFO] Add your public key in RunPod account settings to enable SSH."
+fi
 
 # ── Helper: wait for Ollama to become ready ──
 wait_for_ollama() {
@@ -76,6 +105,12 @@ echo "============================================="
 echo "  All services running!"
 echo "  Open WebUI: http://localhost:${PORT:-8080}"
 echo "  Ollama API: http://localhost:11434"
+if [ -n "${RUNPOD_POD_ID}" ]; then
+echo ""
+echo "  RunPod Proxy URLs:"
+echo "  WebUI:  https://${RUNPOD_POD_ID}-${PORT:-8080}.proxy.runpod.net"
+echo "  Ollama: https://${RUNPOD_POD_ID}-11434.proxy.runpod.net"
+fi
 echo "============================================="
 echo ""
 

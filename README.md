@@ -24,23 +24,29 @@ A self-contained Docker image that runs **Ollama** (LLM backend) and **Open WebU
 ### 1. Build & Push the Image
 
 ```bash
-docker build -t your-registry/runpod-ollama-webui:latest .
+# IMPORTANT: Always build for linux/amd64 (required by RunPod)
+docker build --platform linux/amd64 -t your-registry/runpod-ollama-webui:latest .
 docker push your-registry/runpod-ollama-webui:latest
 ```
+
+> **Apple Silicon / ARM users:** The `--platform linux/amd64` flag is mandatory. RunPod only supports `linux/amd64` architecture.
 
 ### 2. Create RunPod Pod Template
 
 Go to **RunPod Console → Templates → New Template** and fill in:
 
-| Field                | Value                                          |
-|----------------------|------------------------------------------------|
-| **Template Name**    | `Ollama + Open WebUI`                          |
-| **Container Image**  | `your-registry/runpod-ollama-webui:latest`     |
-| **Container Disk**   | `20 GB` (minimum, for OS + WebUI data)         |
-| **Volume Disk**      | `50 GB+` (for models — adjust per model size)  |
-| **Volume Mount Path**| `/root/.ollama`                                |
-| **Expose HTTP Ports**| `8080, 11434`                                  |
-| **Expose TCP Ports** | `11434`                                        |
+| Field                  | Value                                          |
+|------------------------|------------------------------------------------|
+| **Template Name**      | `Ollama + Open WebUI`                          |
+| **Compute Type**       | `NVIDIA GPU`                                   |
+| **Container Image**    | `your-registry/runpod-ollama-webui:latest`     |
+| **Container Disk**     | `20 GB` (minimum, for OS + WebUI data)         |
+| **Volume Disk**        | `50 GB+` (for models — adjust per model size)  |
+| **Volume Mount Path**  | `/root/.ollama`                                |
+| **Expose HTTP Ports**  | `8080, 11434`                                  |
+| **Expose TCP Ports**   | `22`                                           |
+| **Start Command**      | *(leave blank — Dockerfile ENTRYPOINT handles it)* |
+| **Template Readme**    | *(paste contents of `TEMPLATE_README.md`)*     |
 
 ### 3. Set Environment Variables
 
@@ -183,15 +189,92 @@ curl -X POST https://{POD_ID}-11434.proxy.runpod.net/api/pull \
   -d '{"name": "mistral"}'
 ```
 
+## SSH Access
+
+This template includes a pre-configured SSH daemon. To use it:
+
+1. Add your SSH public key in **RunPod Account Settings → SSH Public Keys**
+2. RunPod injects it via the `PUBLIC_KEY` env var automatically
+3. Once the pod is running, find the SSH command under **Connect → SSH over exposed TCP**
+
+You can also set `SSH_PUBLIC_KEY` manually in the template environment variables as an override.
+
+## RunPod System Environment Variables
+
+RunPod automatically injects these into every pod — no need to set them yourself:
+
+| Variable | Description |
+|---|---|
+| `RUNPOD_POD_ID` | Unique pod identifier (used in proxy URLs) |
+| `RUNPOD_API_KEY` | API key for RunPod API calls from within the pod |
+| `RUNPOD_POD_HOSTNAME` | Hostname of the server running your pod |
+| `RUNPOD_GPU_COUNT` | Number of GPUs allocated |
+| `RUNPOD_PUBLIC_IP` | Public IP (if available) |
+| `RUNPOD_TCP_PORT_22` | External mapped port for SSH |
+| `RUNPOD_DC_ID` | Data center ID |
+| `PUBLIC_KEY` | Your SSH public key (from account settings) |
+
+## Sensitive Variables & Secrets
+
+For API keys or passwords, use **RunPod Secrets** instead of plain env vars. Create a secret in RunPod Console → Secrets, then reference it in your template with:
+
+```
+WEBUI_SECRET_KEY={{ RUNPOD_SECRET_webui_secret }}
+WEBUI_ADMIN_PASSWORD={{ RUNPOD_SECRET_admin_password }}
+```
+
+Secret values are encrypted and not visible after creation.
+
 ## Troubleshooting
 
 | Issue | Solution |
 |---|---|
-| WebUI shows "Ollama connection error" | Wait 1-2 min for Ollama to finish starting. Check logs with `journalctl` or pod logs. |
+| WebUI shows "Ollama connection error" | Wait 1-2 min for Ollama to finish starting. Check pod logs. |
 | Model pull fails | Check disk space. Increase Volume Disk size. |
 | Out of VRAM | Use a smaller model or a GPU with more VRAM. Reduce `OLLAMA_NUM_PARALLEL`. |
 | Slow first response | Normal — model loads into VRAM on first request. Subsequent requests are fast. |
 | WebUI data lost on restart | Container disk is ephemeral. Mount `/app/backend/data` to a network volume for full persistence. |
+| SSH: "Permission denied" | Verify your public key is correctly added in RunPod account settings. Each key must be on its own line. |
+| Env vars missing in SSH | This template exports env vars to `/etc/profile.d/` automatically. If still missing, run `source /etc/profile.d/runpod-envs.sh`. |
+| Settings not updating from env vars | Open WebUI uses `PersistentConfig` — after first boot, env vars are ignored for some settings. Set `ENABLE_PERSISTENT_CONFIG=False` to force env var usage, or change settings in the Admin Panel. |
+
+## Create Template via REST API
+
+You can also create the template programmatically:
+
+```bash
+curl --request POST \
+  --url https://rest.runpod.io/v1/templates \
+  --header 'Authorization: Bearer YOUR_RUNPOD_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "name": "Ollama + Open WebUI",
+    "category": "NVIDIA",
+    "imageName": "your-registry/runpod-ollama-webui:latest",
+    "containerDiskInGb": 20,
+    "volumeInGb": 50,
+    "volumeMountPath": "/root/.ollama",
+    "ports": ["8080/http", "11434/http", "22/tcp"],
+    "env": {
+      "OLLAMA_MODEL": "llama3.2",
+      "OLLAMA_HOST": "0.0.0.0:11434",
+      "OLLAMA_KEEP_ALIVE": "5m",
+      "OLLAMA_NUM_PARALLEL": "4",
+      "OLLAMA_MAX_LOADED_MODELS": "1",
+      "OLLAMA_FLASH_ATTENTION": "1",
+      "NVIDIA_VISIBLE_DEVICES": "all",
+      "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+      "PORT": "8080",
+      "WEBUI_AUTH": "True",
+      "ENABLE_SIGNUP": "True",
+      "ENABLE_OLLAMA_API": "True",
+      "ANONYMIZED_TELEMETRY": "false",
+      "DO_NOT_TRACK": "true"
+    },
+    "isPublic": false,
+    "isServerless": false
+  }'
+```
 
 ## License
 

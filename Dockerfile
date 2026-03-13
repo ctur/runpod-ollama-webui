@@ -1,8 +1,12 @@
 # =============================================================================
 # RunPod Pod Template: Ollama + Open WebUI
 # Base: NVIDIA CUDA for GPU inference
+# Compute Type: NVIDIA GPU
+#
+# BUILD: docker build --platform linux/amd64 -t your-registry/runpod-ollama-webui:latest .
+# PUSH:  docker push your-registry/runpod-ollama-webui:latest
 # =============================================================================
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM --platform=linux/amd64 nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 LABEL maintainer="runpod-ollama-webui"
 LABEL description="Ollama LLM server + Open WebUI on RunPod GPU pods"
@@ -25,7 +29,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     netcat \
+    openssh-server \
     && rm -rf /var/lib/apt/lists/*
+
+# ── Configure SSH for RunPod ──
+RUN mkdir -p /var/run/sshd /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    ssh-keygen -A
 
 # ── Install Ollama ──
 RUN curl -fsSL https://ollama.com/install.sh | sh
@@ -67,13 +80,20 @@ ENV RUNPOD=true
 # ── Persistent data directories ──
 RUN mkdir -p /root/.ollama /app/backend/data
 
+# ── Workaround: persist env vars for true SSH sessions ──
+# RunPod's "true SSH" doesn't inherit container env vars.
+# We export them to /etc/environment and a profile script.
+RUN echo '#!/bin/bash\nenv >> /etc/environment\nenv | while IFS="=" read -r key value; do echo "export $key=\"$value\""; done > /etc/profile.d/runpod-envs.sh' > /root/export-env.sh && \
+    chmod +x /root/export-env.sh
+
 # ── Copy entrypoint ──
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # ── Expose ports ──
-# 8080 = Open WebUI (main HTTP port for RunPod proxy)
+# 8080  = Open WebUI (main HTTP port for RunPod proxy)
 # 11434 = Ollama API
-EXPOSE 8080 11434
+# 22    = SSH (for RunPod SSH/SCP/IDE access)
+EXPOSE 8080 11434 22
 
 ENTRYPOINT ["/entrypoint.sh"]
