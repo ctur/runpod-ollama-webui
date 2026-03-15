@@ -2,13 +2,14 @@
 # RunPod Pod Template: Ollama + Open WebUI
 # Compute Type: NVIDIA GPU
 #
-# BUILD:
+# BUILD (Apple Container App):
+#   container build --dns 8.8.8.8 -t your-registry/runpod-ollama-webui:latest .
+#
+# BUILD (Docker / other):
 #   docker build --platform linux/amd64 -t your-registry/runpod-ollama-webui:latest .
 #
-#   Apple Container App DNS fix (if build fails with "Temporary failure resolving"):
-#     1. Stop any local DNS service (dnsmasq, pihole, etc.)
-#     2. Or switch to Docker Desktop which handles DNS differently
-#     3. Or build on a Linux machine / CI pipeline
+# PIN VERSIONS (optional):
+#   docker build --build-arg OLLAMA_VERSION=0.15.2 --build-arg OPENWEBUI_VERSION=0.8.5 ...
 #
 # PUSH:
 #   docker push your-registry/runpod-ollama-webui:latest
@@ -20,20 +21,35 @@ LABEL description="Ollama LLM server + Open WebUI on RunPod GPU pods"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ── Extra packages (RunPod base already has curl, wget, git, python3, pip, ssh) ──
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ffmpeg \
-        libsm6 \
-        libxext6 \
-        lsof \
-    && rm -rf /var/lib/apt/lists/*
+# ── Version pinning (override with --build-arg) ──
+# Empty = install latest. Set to specific version for reproducible builds.
+# Example: --build-arg OLLAMA_VERSION=0.15.2 --build-arg OPENWEBUI_VERSION=0.8.5
+ARG OLLAMA_VERSION=""
+ARG OPENWEBUI_VERSION=""
 
 # ── Install Ollama ──
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# If OLLAMA_VERSION is set, download the pinned release directly (like vast.ai does).
+# Otherwise, use the install script to get the latest.
+RUN apt-get update && apt-get install -y --no-install-recommends zstd && \
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -n "${OLLAMA_VERSION}" ]; then \
+        curl -fsSL "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst" \
+            -o /tmp/ollama.tar.zst && \
+        tar --use-compress-program=unzstd -xf /tmp/ollama.tar.zst -C /usr && \
+        rm /tmp/ollama.tar.zst; \
+    else \
+        curl -fsSL https://ollama.com/install.sh | sh; \
+    fi && \
+    ollama --version
 
 # ── Install Open WebUI via pip ──
-RUN pip install --no-cache-dir open-webui
+# pip install is an officially supported method (docs.openwebui.com).
+# Requires Python 3.11 or 3.12 (RunPod base has 3.11 ✓).
+RUN if [ -n "${OPENWEBUI_VERSION}" ]; then \
+        pip install --no-cache-dir "open-webui==${OPENWEBUI_VERSION}"; \
+    else \
+        pip install --no-cache-dir open-webui; \
+    fi
 
 # ── Default environment variables ──────────────────────────────────────────
 #
