@@ -65,6 +65,22 @@ Choose your GPU (A40, A100, H100, etc.), click **Deploy On-Demand**, and wait fo
 
 ## Environment Variables Reference
 
+### Minimum env variables
+
+| Variable | Required | Value | Note |
+|----------|----------|-------|------|
+| `OLLAMA_MODEL` | Yes | `llama3.2` | Model to auto-pull on startup. |
+| `OLLAMA_HOST` | Yes | `0.0.0.0:11434` | Address Ollama listens on. |
+| `OLLAMA_MODELS` | Yes | `/workspace/ollama/models` | Model storage path. |
+| `OLLAMA_BASE_URL` | Yes | `http://127.0.0.1:11434` | Open WebUI → Ollama. |
+| `PORT` | Yes | `8080` | Web UI port. |
+| `DATA_DIR` | Yes | `/workspace/open-webui` | WebUI data path. |
+| `WEBUI_AUTH` | Yes | `True` | Enable login. |
+| `ENABLE_SIGNUP` | Yes | `True` | Allow new user signups. |
+| `ENABLE_OLLAMA_API` | Yes | `True` | Enable Ollama in WebUI. |
+| `WEBUI_SECRET_KEY` | Yes | `{{ RUNPOD_SECRET_WEBUI_SECRET }}` | Use RunPod Secret. |
+| `OLLAMA_KEEP_ALIVE` | No | `-1` | Keep model loaded (optional). |
+
 ### Ollama – Core
 
 | Variable | Default | Description |
@@ -159,18 +175,24 @@ The entrypoint also creates a symlink `/root/.ollama → /workspace/ollama` so O
 
 > **Without a network volume:** If you deploy without a network volume, `/workspace` falls back to the pod's regular volume disk (persists across restarts but not pod deletions). Models and WebUI data will still work, they just won't survive a pod termination.
 
-## Model Size Guide
+## Model Size Guide (VRAM & storage)
 
-| Model | VRAM Needed | Disk Size | Recommended GPU |
-|---|---|---|---|
-| `llama3.2` (3B) | ~4 GB | ~2 GB | Any |
-| `llama3.1:8b` | ~8 GB | ~5 GB | RTX 3090 / A40 |
-| `mistral` (7B) | ~8 GB | ~4 GB | RTX 3090 / A40 |
-| `llama3.1:70b` | ~48 GB | ~40 GB | A100 80GB |
-| `llama3.1:405b-q4` | ~240 GB | ~230 GB | 3× H100 |
-| `codellama:34b` | ~24 GB | ~19 GB | A100 40GB |
+Rough requirements for popular sizes (Q4 quantization; add ~1 GB for KV cache at long context). Set **Volume Disk** to fit your chosen model(s).
 
-Set your **Volume Disk** size accordingly.
+| Size | VRAM | Storage | Example models | GPU |
+|------|------|---------|----------------|-----|
+| **1B** | ~2 GB | ~0.6–1 GB | `qwen3.5:0.8b`, `phi4:1.2b` | Any |
+| **2B** | ~2–3 GB | ~1–1.5 GB | `qwen3.5:1.5b`, `phi4:2b` | Any |
+| **3B** | ~4 GB | ~2 GB | `llama3.2`, `qwen3.5:3b` | Any |
+| **7B** | ~6–8 GB | ~4 GB | `mistral`, `llama3.1`, `qwen2.5:7b` | RTX 3080+ / A40 |
+| **8B** | ~6–8 GB | ~5 GB | `llama3.1:8b`, `qwen2.5:8b` | RTX 3080+ / A40 |
+| **13B** | ~10–12 GB | ~8 GB | `llama3.1:13b`, `codellama:13b` | RTX 3090 / A40 |
+| **20B** | ~16–20 GB | ~12 GB | `qwen2.5:20b`, `llama3.1:20b` | A100 24GB / 2× RTX 3090 |
+| **32–34B** | ~22–24 GB | ~19–20 GB | `codellama:34b`, `qwen2.5:32b` | A100 40GB |
+| **70B** | ~48 GB | ~40 GB | `llama3.1:70b`, `qwen2.5:72b` | A100 80GB |
+| **405B** (Q4) | ~240 GB | ~230 GB | `llama3.1:405b-q4` | 3× H100 |
+
+**Tip:** For multiple models, sum storage and use the largest model’s VRAM. Leave headroom for context (long chats need more VRAM).
 
 ## Accessing Your Pod
 
