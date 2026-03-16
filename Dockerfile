@@ -23,9 +23,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # ── Version pinning (override with --build-arg) ──
 # Empty = install latest. Set to specific version for reproducible builds.
-# Example: --build-arg OLLAMA_VERSION=0.15.2 --build-arg OPENWEBUI_VERSION=0.8.5
-ARG OLLAMA_VERSION=""
-ARG OPENWEBUI_VERSION=""
+# Example: --build-arg OLLAMA_VERSION=0.18.8 --build-arg OPENWEBUI_VERSION=0.8.8
+ARG OLLAMA_VERSION="0.18.8"
+ARG OPENWEBUI_VERSION="0.8.8"
 
 # ── Install Ollama ──
 # If OLLAMA_VERSION is set, download the pinned release directly (like vast.ai does).
