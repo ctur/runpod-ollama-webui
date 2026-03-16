@@ -51,7 +51,7 @@ Go to **RunPod Console → Templates → New Template** and fill in:
 | **Compute Type**      | `NVIDIA GPU`                                       |
 | **Container Image**   | `your-registry/runpod-ollama-webui:latest`         |
 | **Container Disk**    | `20 GB` (for OS + installed packages)              |
-| **Volume Disk**       | `50 GB+` (for models — adjust per model size)      |
+| **Volume Disk**       | `5 GB+` (for models — adjust per model size)       |
 | **Volume Mount Path** | `/workspace`                                       |
 | **Expose HTTP Ports** | `8080` (Open WebUI), `11434` (Ollama API)          |
 | **Expose TCP Ports**  | `22` (SSH)                                         |
@@ -74,7 +74,7 @@ Choose your GPU (A40, A100, H100, etc.), click **Deploy On-Demand**, and wait fo
 
 | Variable            | Required | Value                              | Note                           |
 | ------------------- | -------- | ---------------------------------- | ------------------------------ |
-| `OLLAMA_MODEL`      | Yes      | `llama3.2`                         | Model to auto-pull on startup. |
+| `OLLAMA_MODEL`      | Yes      | `qwen3.5:4b`                       | Model to auto-pull on startup. |
 | `OLLAMA_HOST`       | Yes      | `0.0.0.0:11434`                    | Address Ollama listens on.     |
 | `OLLAMA_MODELS`     | Yes      | `/workspace/ollama/models`         | Model storage path.            |
 | `OLLAMA_BASE_URL`   | Yes      | `http://127.0.0.1:11434`           | Open WebUI → Ollama.           |
@@ -90,7 +90,7 @@ Choose your GPU (A40, A100, H100, etc.), click **Deploy On-Demand**, and wait fo
 
 | Variable                   | Default                    | Description                                                                                                                                |
 | -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `OLLAMA_MODEL`             | `llama3.2`                 | Model(s) to auto-pull on startup. Comma-separated for multiple (e.g. `llama3.2,mistral,codellama`). Set to empty string to skip auto-pull. |
+| `OLLAMA_MODEL`             | `qwen3.5:4b`               | Model(s) to auto-pull on startup. Comma-separated for multiple (e.g. `qwen3.5:4b,mistral,codellama`). Set to empty string to skip auto-pull. |
 | `OLLAMA_HOST`              | `0.0.0.0:11434`            | Address Ollama listens on. **Do not change** unless you know what you're doing.                                                            |
 | `OLLAMA_MODELS`            | `/workspace/ollama/models` | Directory where Ollama stores downloaded models. Lives on the network volume by default.                                                   |
 | `OLLAMA_KEEP_ALIVE`        | `5m`                       | How long to keep a model loaded in VRAM after last request. Use `0` to unload immediately, `-1` to keep forever.                           |
@@ -146,7 +146,7 @@ Choose your GPU (A40, A100, H100, etc.), click **Deploy On-Demand**, and wait fo
 For quick setup, copy these into the **Environment Variables** field in your RunPod template. Adjust values as needed:
 
 ```
-OLLAMA_MODEL=llama3.2
+OLLAMA_MODEL=qwen3.5:4b
 OLLAMA_HOST=0.0.0.0:11434
 OLLAMA_MODELS=/workspace/ollama/models
 OLLAMA_KEEP_ALIVE=5m
@@ -169,9 +169,9 @@ DO_NOT_TRACK=true
 
 | What                           | Change                                                                                                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**OLLAMA_MODEL**`             | Comma-separated list, e.g. `llama3.2,mistral` or `qwen3.5:3b,llama3.1:8b`. All listed models are pulled on startup.                                       |
+| `**OLLAMA_MODEL**`             | Comma-separated list, e.g. `qwen3.5:4b,mistral` or `qwen3.5:4b,llama3.1:8b`. All listed models are pulled on startup.                                     |
 | `**OLLAMA_MAX_LOADED_MODELS**` | Set to `2` (or more) if your GPU has enough VRAM to keep multiple models in memory. Default `1` loads only one at a time (others load on first use).      |
-| `**DEFAULT_MODELS**`           | Optional. Comma-separated models shown as defaults in the chat selector (e.g. `llama3.2,mistral`). If unset, the first value from `OLLAMA_MODEL` is used. |
+| `**DEFAULT_MODELS**`           | Optional. Comma-separated models shown as defaults in the chat selector (e.g. `qwen3.5:4b,mistral`). If unset, the first value from `OLLAMA_MODEL` is used. |
 | **Volume disk**                | Size it for the sum of all model storage (see [Model Size Guide](#model-size-guide-vram--storage)).                                                       |
 | **VRAM / GPU**                 | Must fit the largest model. If `OLLAMA_MAX_LOADED_MODELS=2`, VRAM must fit both models (e.g. two 7B ≈ 16 GB).                                             |
 
@@ -361,7 +361,7 @@ curl --request POST \
     "volumeMountPath": "/workspace",
     "ports": ["8080/http", "11434/http", "22/tcp"],
     "env": {
-      "OLLAMA_MODEL": "llama3.2",
+      "OLLAMA_MODEL": "qwen3.5:4b",
       "OLLAMA_HOST": "0.0.0.0:11434",
       "OLLAMA_MODELS": "/workspace/ollama/models",
       "OLLAMA_KEEP_ALIVE": "5m",
