@@ -81,6 +81,7 @@ ENV WEBUI_SECRET_KEY=""
 ENV ENABLE_SIGNUP=True
 ENV DEFAULT_USER_ROLE=pending
 ENV DEFAULT_MODELS=""
+# ENV DEFAULT_MODEL_PARAMS='{"temperature": 0.2, "top_p": 0.9, "top_k": 40, "repeat_penalty": 1.18, "repeat_last_n": 64, "context": 4096}'
 ENV WEBUI_AUTH=True
 ENV ANONYMIZED_TELEMETRY=false
 ENV DO_NOT_TRACK=true
